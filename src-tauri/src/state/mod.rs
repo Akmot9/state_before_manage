@@ -3,8 +3,8 @@ use std::{collections::HashMap, sync::{Arc, Mutex}, thread, time::Duration};
 use rand::Rng;
 
 pub struct SonarState {
-    matrice: HashMap<String,u32>,
-    recording: bool
+    matrice: HashMap<String, HashMap<u32, u32>>, // Thread -> (valeur -> occurrences)
+    recording: bool,
 }
 
 impl SonarState {
@@ -29,9 +29,16 @@ impl SonarState {
         let formatted_data: String = self
             .matrice
             .iter()
-            .map(|(key, value)| format!("{}: {}", key, value))
+            .map(|(thread, values)| {
+                let values_str: String = values
+                    .iter()
+                    .map(|(value, occurrences)| format!("{}: {}", value, occurrences))
+                    .collect::<Vec<String>>()
+                    .join(", ");
+                format!("{} -> [{}]", thread, values_str)
+            })
             .collect::<Vec<String>>()
-            .join(", ");
+            .join("; ");
         Ok(formatted_data)
     }
 
@@ -48,8 +55,10 @@ fn start_thread(state: Arc<Mutex<SonarState>>, thread_name: String) {
                 let mut locked_state = state.lock().unwrap();
                 if locked_state.recording {
                     let value = rng.gen_range(1..100);
-                    locked_state.matrice.insert(thread_name.clone(), value);
-                    println!("{} added value: {}", thread_name, value);
+                    let thread_entry = locked_state.matrice.entry(thread_name.clone()).or_insert_with(HashMap::new);
+                    let counter = thread_entry.entry(value).or_insert(0);
+                    *counter += 1;
+                    println!("{} added value: {} (occurrences: {})", thread_name, value, *counter);
                 }
             }
             thread::sleep(Duration::from_secs(1));
