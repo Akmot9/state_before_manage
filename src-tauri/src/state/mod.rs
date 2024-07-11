@@ -45,6 +45,16 @@ impl SonarState {
     pub fn set_recording(&mut self, recording: bool) {
         self.recording = recording;
     }
+
+    pub fn update_matrice(&mut self, thread_name: String, value: u32) {
+        let thread_entry = self.matrice
+            .entry(thread_name)
+            .or_insert_with(HashMap::new);
+        let counter = thread_entry
+            .entry(value)
+            .or_insert(0);
+        *counter += 1;
+    }
 }
 
 fn start_thread(state: Arc<Mutex<SonarState>>, thread_name: String) {
@@ -52,13 +62,13 @@ fn start_thread(state: Arc<Mutex<SonarState>>, thread_name: String) {
         let mut rng = rand::thread_rng();
         loop {
             {
+                //1. lock the state
                 let mut locked_state = state.lock().unwrap();
                 if locked_state.recording {
                     let value = rng.gen_range(1..100);
-                    let thread_entry = locked_state.matrice.entry(thread_name.clone()).or_insert_with(HashMap::new);
-                    let counter = thread_entry.entry(value).or_insert(0);
-                    *counter += 1;
-                    println!("{} added value: {} (occurrences: {})", thread_name, value, *counter);
+                    //2. update the state.matrice using the new method
+                    locked_state.update_matrice(thread_name.clone(), value);
+                    println!("{} added value: {} (occurrences: {})", thread_name, value, locked_state.matrice[&thread_name][&value]);
                 }
             }
             thread::sleep(Duration::from_secs(1));
